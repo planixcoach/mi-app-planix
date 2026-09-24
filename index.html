@@ -267,8 +267,10 @@
 // CONFIGURACIÓN — completar antes de publicar
 // ============================================================
 const OAUTH_CLIENT_ID = '717754101832-67059bbrnvd44tki33i2h32n6sc201u9.apps.googleusercontent.com';
-const API_URL = 'https://script.google.com/macros/s/AKfycby0v748FRkXniySalsRaixxJoK7-gWCEEi4xxtJQTiSaMBRFY7ssRScZjNqsipllc3L/exec';
-const NOMBRE_MARCA = 'Cristian Pilotti';
+const API_URL = 'https://script.google.com/macros/s/TU_URL_NUEVA/exec';
+// El nombre de marca YA NO se edita acá — cada profe lo cambia desde la
+// pestaña "Config" (celda B1) de su propia planilla Índice, sin tocar
+// código. La app lo pide al backend antes del login (ver cargarMarca()).
 // ============================================================
 
 /**
@@ -321,9 +323,7 @@ function onGoogleLogin(response) {
 window.onload = function () {
   document.getElementById('logo-login').innerHTML = logoSVG('l', 68, false);
   document.getElementById('logo-footer').innerHTML = logoSVG('f', 14, false);
-  document.getElementById('brand-title').textContent = NOMBRE_MARCA;
-  document.getElementById('login-title').textContent = 'Iniciá sesión para ver tu plan de ' + NOMBRE_MARCA;
-  document.title = NOMBRE_MARCA;
+  cargarMarca();
   if (typeof google === 'undefined') {
     mostrarError('No se pudo cargar el login de Google. Revisá tu conexión y volvé a intentar.');
     return;
@@ -337,6 +337,26 @@ window.onload = function () {
     { theme: 'filled_blue', size: 'large', shape: 'pill', text: 'signin_with' }
   );
 };
+
+/**
+ * Pide el nombre de marca al backend, SIN login (?marca=1) — se llama
+ * apenas carga la página, antes de que el alumno se identifique, porque
+ * la pantalla de login ya tiene que mostrar el nombre correcto. Si falla
+ * (sin conexión, API_URL mal puesta, etc.) se usa "Planix" como
+ * respaldo, para no dejar la pantalla con "Cargando…" pegado.
+ */
+function cargarMarca() {
+  fetch(API_URL + '?marca=1')
+    .then(function (r) { return r.json(); })
+    .then(function (data) { aplicarMarca(data.marca || 'Planix'); })
+    .catch(function () { aplicarMarca('Planix'); });
+}
+
+function aplicarMarca(marca) {
+  document.getElementById('brand-title').textContent = marca;
+  document.getElementById('login-title').textContent = 'Iniciá sesión para ver tu plan de ' + marca;
+  document.title = marca;
+}
 
 function cargarPlan(idToken) {
   document.getElementById('login-screen').style.display = 'none';
@@ -457,7 +477,8 @@ function renderCard(ej, idxLocal) {
   const row = document.createElement('div');
   row.className = 'card-row';
   row.appendChild(pill(ej.series + ' series'));
-  if (ej.reps_rango) row.appendChild(pill(ej.reps_rango + ' reps'));
+  const repsPill = pillReps(ej);
+  if (repsPill) row.appendChild(repsPill);
   if (ej.descanso) {
     row.appendChild(pill('Descanso: ' + ej.descanso));
     const timerBtn = document.createElement('span');
@@ -465,7 +486,11 @@ function renderCard(ej, idxLocal) {
     timerBtn.textContent = '⏱ Iniciar';
     timerBtn.onclick = function (evt) {
       evt.stopPropagation();
-      iniciarTimer(ej.bloque, timerBtn);
+      if (timerBtn._intervalId) {
+        detenerTimer(timerBtn); // ya está corriendo: un toque de más lo para, no lo reinicia
+      } else {
+        iniciarTimer(ej.bloque, timerBtn);
+      }
     };
     row.appendChild(timerBtn);
   }
@@ -625,6 +650,13 @@ const COLOR_BLOQUE = {
   'Fuerza-Resistencia': '#C1652F',
 };
 
+function detenerTimer(btnEl) {
+  if (btnEl._intervalId) clearInterval(btnEl._intervalId);
+  btnEl._intervalId = null;
+  btnEl.classList.remove('running', 'overtime');
+  btnEl.textContent = '⏱ Iniciar';
+}
+
 function iniciarTimer(bloque, btnEl) {
   let segundos = DESCANSO_INICIAL_SEGUNDOS[bloque] || 60;
   let enTiempoExtra = false;
@@ -651,6 +683,23 @@ function iniciarTimer(bloque, btnEl) {
     }
     pintar();
   }, 1000);
+}
+
+/**
+ * Si el profe puso el mismo número de reps en todas las series (lo más
+ * común), muestra "6 reps" simple. Si las puso distintas a mano en la
+ * Hoja 3 (por ejemplo, ascendente: 4, 5, 6), lo detalla serie por serie
+ * en vez de esconder esa progresión atrás del rango genérico.
+ */
+function pillReps(ej) {
+  const valores = ej.reps_objetivo;
+  if (valores && valores.length > 0) {
+    const distintos = valores.some(function (v) { return v !== valores[0]; });
+    if (distintos) return pill(valores.join(' · ') + ' reps');
+    return pill(valores[0] + ' reps');
+  }
+  if (ej.reps_rango) return pill(ej.reps_rango + ' reps');
+  return null;
 }
 
 function pill(text) {
