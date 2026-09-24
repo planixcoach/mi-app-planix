@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Planix — Mi plan</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  :root {
+    --navy: #1B3A4B;
+    --orange: #C1652F;
+    --cream: #F7F3EE;
+    --gray: #8A8F98;
+    --green: #3C8B5B;
+    --border: #E5E1DA;
+    box-sizing: border-box;
+  }
+  * { box-sizing: inherit; margin: 0; padding: 0; }
+  html, body {
+    height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--cream);
+    color: var(--navy);
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  #app { max-width: 480px; margin: 0 auto; min-height: 100%; display: flex; flex-direction: column; }
+
+  header {
+    background: linear-gradient(135deg, var(--navy) 0%, #142a36 100%);
+    color: #fff;
+    padding: 22px 20px 18px;
+    position: sticky;
+    top: env(safe-area-inset-top, 0px);
+    z-index: 10;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+  }
+  .logo-svg-wrap { flex: none; display: flex; }
+  header h1 { font-size: 21px; font-weight: 800; letter-spacing: 0.3px; }
+  header p { font-size: 13px; color: #C7D2D9; margin-top: 3px; }
+
+  #login-screen {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 24px;
+    text-align: center;
+    gap: 20px;
+  }
+  #login-screen .logo-svg-wrap { margin-bottom: 4px; }
+  #login-screen h2 { font-size: 18px; color: var(--navy); }
+  #login-screen p { font-size: 14px; color: var(--gray); max-width: 280px; }
+  #g_id_signin_container { margin-top: 8px; }
+
+  .welcome-banner {
+    background: #fff;
+    margin: 16px 16px 0;
+    padding: 14px 16px;
+    border-radius: 12px;
+    font-size: 14px;
+    color: var(--navy);
+    border: 1px solid var(--border);
+  }
+  .welcome-banner b { color: var(--orange); }
+
+  .completion-banner {
+    background: var(--navy);
+    color: #fff;
+    margin: 4px 16px 16px;
+    padding: 16px;
+    border-radius: 14px;
+    text-align: center;
+  }
+  .completion-banner .big { font-size: 17px; font-weight: 800; margin-bottom: 2px; }
+  .completion-banner .small { font-size: 13px; color: #C7D2D9; }
+
+  #status-msg {
+    text-align: center;
+    padding: 40px 24px;
+    color: var(--gray);
+    font-size: 14px;
+    display: none;
+  }
+  #status-msg.error { color: #B3382C; }
+
+  #day-tabs {
+    display: flex;
+    gap: 8px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    background: #fff;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 76px;
+    z-index: 9;
+  }
+  .day-tab {
+    flex: none;
+    padding: 8px 16px;
+    border-radius: 20px;
+    background: var(--cream);
+    color: var(--navy);
+    font-size: 13px;
+    font-weight: 600;
+    border: 1px solid var(--border);
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .day-tab.active { background: var(--orange); color: #fff; border-color: var(--orange); }
+
+  main { flex: 1; padding: 16px; padding-bottom: 40px; }
+
+  .block-label {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--orange);
+    margin: 20px 0 8px;
+  }
+  .block-label:first-child { margin-top: 4px; }
+
+  .card {
+    background: #fff;
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    box-shadow: 0 1px 3px rgba(27,58,75,0.08);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .card.done { opacity: 0.55; }
+  .card-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+  .check-circle {
+    flex: none;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px;
+    color: transparent;
+    margin-top: 1px;
+  }
+  .card.done .check-circle { background: var(--green); border-color: var(--green); color: #fff; }
+  .card-title { font-size: 15px; font-weight: 700; color: var(--navy); flex: 1; }
+  .card.done .card-title { text-decoration: line-through; text-decoration-color: var(--gray); }
+  .card-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 8px;
+    align-items: center;
+  }
+  .pill {
+    background: var(--cream);
+    color: var(--navy);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 8px;
+  }
+  .timer-btn {
+    background: #fff;
+    color: var(--orange);
+    border: 1px solid var(--orange);
+    font-size: 12px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  .timer-btn.running { background: var(--orange); color: #fff; }
+  .timer-btn.overtime { background: #B3382C; color: #fff; border-color: #B3382C; }
+  .save-form {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--border);
+  }
+  .save-form input {
+    width: 70px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    background: var(--cream);
+  }
+  .save-form label { font-size: 11px; color: var(--gray); display: block; margin-bottom: 2px; }
+  .save-form .field { flex: 1; }
+  .save-btn {
+    background: var(--navy);
+    color: #fff;
+    border: none;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    align-self: flex-end;
+  }
+  .save-btn:disabled { opacity: 0.5; }
+  .card-peso {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px dashed var(--border);
+    padding-top: 8px;
+    margin-top: 4px;
+    font-size: 13px;
+  }
+  .card-peso .label { color: var(--gray); }
+  .card-peso .value { font-weight: 700; color: var(--navy); }
+  .card-peso .value.empty { color: var(--gray); font-weight: 500; font-style: italic; }
+  .resultado {
+    margin-top: 8px;
+    font-size: 12.5px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: #EAF4EE;
+    color: var(--green);
+    font-weight: 600;
+  }
+  .video-link {
+    display: inline-block;
+    margin-top: 8px;
+    font-size: 12.5px;
+    color: var(--orange);
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .video-link:before { content: "▶ "; }
+
+  #empty-day { text-align: center; color: var(--gray); padding: 40px 20px; font-size: 14px; }
+
+  footer { text-align: center; padding: 16px; font-size: 11px; color: var(--gray); }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1 id="brand-title">Cargando…</h1>
+    <p id="header-sub">Tu plan de la semana</p>
+  </header>
+
+  <div id="login-screen">
+    <div class="logo-svg-wrap" id="logo-login"></div>
+    <h2 id="login-title">Iniciá sesión para ver tu plan</h2>
+    <p>Usá la misma cuenta de Google que le diste a tu profe.</p>
+    <div id="g_id_signin_container"></div>
+  </div>
+
+  <div id="status-msg"></div>
+
+  <div id="day-tabs" style="display:none;"></div>
+  <main id="main-content" style="display:none;"></main>
+
+  <footer><span class="logo-svg-wrap" id="logo-footer" style="display:inline-flex;vertical-align:middle;margin-right:4px;"></span> Planix</footer>
+</div>
+
+<script>
+// ============================================================
+// CONFIGURACIÓN — completar antes de publicar
+// ============================================================
+const OAUTH_CLIENT_ID = '717754101832-67059bbrnvd44tki33i2h32n6sc201u9.apps.googleusercontent.com';
+const API_URL = 'https://script.google.com/macros/s/AKfycby0v748FRkXniySalsRaixxJoK7-gWCEEi4xxtJQTiSaMBRFY7ssRScZjNqsipllc3L/exec';
+const NOMBRE_MARCA = 'Cristian Pilotti';
+// ============================================================
+
+/**
+ * Logo real de Planix, medido a partir del isotipo original (no aproximado):
+ * el anillo son dos arcos que se tocan sin espacio entre sí — naranja ocupa
+ * 231° desde arriba en sentido horario, navy los 129° restantes. Se genera
+ * como SVG (con degradé y sombra para dar profundidad) en vez del truco de
+ * border-CSS anterior, que solo hacía 4 cuartos parejos y no se parecía.
+ * `conContorno` agrega un borde blanco detrás de cada arco — hace falta
+ * arriba en el header porque ahí el fondo es navy y, sin eso, el arco navy
+ * del logo se pierde contra el fondo.
+ */
+function logoSVG(idSufijo, sizePx, conContorno) {
+  const r = conContorno ? 35 : 39;
+  const strokeColor = conContorno ? 10 : 10;
+  const C = 245; // circunferencia aprox. para r≈39, alcanza para ambos radios
+  const largoNaranja = 157.2, largoNavy = 87.8;
+  const idO = 'o' + idSufijo, idN = 'n' + idSufijo;
+  const contorno = conContorno ? `
+    <circle cx="50" cy="50" r="${r}" fill="none" stroke="#ffffff" stroke-width="13" stroke-dasharray="${largoNaranja} ${C}" transform="rotate(-90 50 50)" opacity="0.95"/>
+    <circle cx="50" cy="50" r="${r}" fill="none" stroke="#ffffff" stroke-width="13" stroke-dasharray="${largoNavy} ${C}" transform="rotate(141 50 50)" opacity="0.95"/>
+  ` : '';
+  return `<svg viewBox="0 0 100 100" width="${sizePx}" height="${sizePx}" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.28));">
+    <defs>
+      <linearGradient id="${idO}" x1="20%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#E08148"/><stop offset="100%" stop-color="#A8531F"/>
+      </linearGradient>
+      <linearGradient id="${idN}" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#2F5871"/><stop offset="100%" stop-color="#122530"/>
+      </linearGradient>
+    </defs>
+    ${contorno}
+    <circle cx="50" cy="50" r="${r}" fill="none" stroke="url(#${idO})" stroke-width="${strokeColor}" stroke-dasharray="${largoNaranja} ${C}" transform="rotate(-90 50 50)"/>
+    <circle cx="50" cy="50" r="${r}" fill="none" stroke="url(#${idN})" stroke-width="${strokeColor}" stroke-dasharray="${largoNavy} ${C}" transform="rotate(141 50 50)"/>
+  </svg>`;
+}
+
+let semanaData = null;
+let diaActivo = 0;
+let nombreAlumno = null;
+const activacionHecha = {}; // clave "dia-idxLocal" -> bool (solo en esta sesión, no persiste)
+const timers = {}; // clave "dia-slotOtipo" -> {intervalId, cardEl}
+
+function onGoogleLogin(response) {
+  const idToken = response.credential;
+  window._idToken = idToken; // se reusa para guardar peso/reps sin volver a pedir login
+  cargarPlan(idToken);
+}
+
+window.onload = function () {
+  document.getElementById('logo-login').innerHTML = logoSVG('l', 68, false);
+  document.getElementById('logo-footer').innerHTML = logoSVG('f', 14, false);
+  document.getElementById('brand-title').textContent = NOMBRE_MARCA;
+  document.getElementById('login-title').textContent = 'Iniciá sesión para ver tu plan de ' + NOMBRE_MARCA;
+  document.title = NOMBRE_MARCA;
+  if (typeof google === 'undefined') {
+    mostrarError('No se pudo cargar el login de Google. Revisá tu conexión y volvé a intentar.');
+    return;
+  }
+  google.accounts.id.initialize({
+    client_id: OAUTH_CLIENT_ID,
+    callback: onGoogleLogin,
+  });
+  google.accounts.id.renderButton(
+    document.getElementById('g_id_signin_container'),
+    { theme: 'filled_blue', size: 'large', shape: 'pill', text: 'signin_with' }
+  );
+};
+
+function cargarPlan(idToken) {
+  document.getElementById('login-screen').style.display = 'none';
+  mostrarEstado('Cargando tu plan…', false);
+
+  fetch(API_URL + '?id_token=' + encodeURIComponent(idToken))
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (data.error) {
+        mostrarEstado(data.error, true);
+        return;
+      }
+      semanaData = data.semana;
+      nombreAlumno = data.nombre || null;
+      diaActivo = 0;
+      document.getElementById('status-msg').style.display = 'none';
+      renderSaludo();
+      renderTabs();
+      renderDia();
+    })
+    .catch(function (err) {
+      mostrarEstado('No pudimos conectar con tu plan. Probá de nuevo en un momento.', true);
+    });
+}
+
+function renderSaludo() {
+  const sub = document.getElementById('header-sub');
+  const primerNombre = nombreAlumno ? String(nombreAlumno).split(' ')[0] : null;
+  sub.textContent = primerNombre ? ('¡Hola, ' + primerNombre + '! 👋') : 'Tu plan de la semana';
+}
+
+function mostrarEstado(msg, esError) {
+  const el = document.getElementById('status-msg');
+  el.textContent = msg;
+  el.className = esError ? 'error' : '';
+  el.style.display = 'block';
+}
+
+function mostrarError(msg) { mostrarEstado(msg, true); }
+
+function renderTabs() {
+  const tabsEl = document.getElementById('day-tabs');
+  tabsEl.innerHTML = '';
+  semanaData.forEach(function (dia, idx) {
+    const btn = document.createElement('div');
+    btn.className = 'day-tab' + (idx === diaActivo ? ' active' : '');
+    btn.textContent = 'Día ' + dia.dia + ' · ' + dia.tipo;
+    btn.onclick = function () { diaActivo = idx; renderTabs(); renderDia(); };
+    tabsEl.appendChild(btn);
+  });
+  tabsEl.style.display = 'flex';
+}
+
+function renderDia() {
+  const main = document.getElementById('main-content');
+  main.style.display = 'block';
+  main.innerHTML = '';
+  const dia = semanaData[diaActivo];
+  if (!dia || dia.ejercicios.length === 0) {
+    main.innerHTML = '<div id="empty-day">Todavía no hay ejercicios cargados para este día.</div>';
+    return;
+  }
+
+  let bloqueAnterior = null;
+  dia.ejercicios.forEach(function (ej, idxLocal) {
+    if (ej.bloque !== bloqueAnterior) {
+      const label = document.createElement('div');
+      label.className = 'block-label';
+      label.textContent = (ICONO_BLOQUE[ej.bloque] || '') + ' ' + ej.bloque;
+      main.appendChild(label);
+      bloqueAnterior = ej.bloque;
+    }
+    main.appendChild(renderCard(ej, idxLocal));
+  });
+
+  main.appendChild(renderCompletionBanner(dia));
+}
+
+function estaHecho(ej, idxLocal) {
+  if (ej.bloque === 'Activación') return !!activacionHecha[diaActivo + '-' + idxLocal];
+  return ej.peso_usado !== null;
+}
+
+function renderCompletionBanner(dia) {
+  const wrap = document.createElement('div');
+  const todosHechos = dia.ejercicios.every(function (ej, i) { return estaHecho(ej, i); });
+  if (!todosHechos) return wrap;
+  wrap.className = 'completion-banner';
+  const big = document.createElement('div');
+  big.className = 'big';
+  big.textContent = '¡Entrenamiento completado! 💪';
+  const small = document.createElement('div');
+  small.className = 'small';
+  small.textContent = 'Buen trabajo' + (nombreAlumno ? ', ' + String(nombreAlumno).split(' ')[0] : '') + '. Nos vemos el próximo día.';
+  wrap.appendChild(big);
+  wrap.appendChild(small);
+  return wrap;
+}
+
+function renderCard(ej, idxLocal) {
+  const card = document.createElement('div');
+  const hecho = estaHecho(ej, idxLocal);
+  card.className = 'card' + (hecho ? ' done' : '');
+  card.style.borderLeft = '4px solid ' + (COLOR_BLOQUE[ej.bloque] || 'var(--border)');
+
+  const head = document.createElement('div');
+  head.className = 'card-head';
+  const check = document.createElement('div');
+  check.className = 'check-circle';
+  check.textContent = '✓';
+  head.appendChild(check);
+  const title = document.createElement('div');
+  title.className = 'card-title';
+  title.textContent = ej.ejercicio;
+  head.appendChild(title);
+  card.appendChild(head);
+
+  const row = document.createElement('div');
+  row.className = 'card-row';
+  row.appendChild(pill(ej.series + ' series'));
+  if (ej.reps_rango) row.appendChild(pill(ej.reps_rango + ' reps'));
+  if (ej.descanso) {
+    row.appendChild(pill('Descanso: ' + ej.descanso));
+    const timerBtn = document.createElement('span');
+    timerBtn.className = 'timer-btn';
+    timerBtn.textContent = '⏱ Iniciar';
+    timerBtn.onclick = function (evt) {
+      evt.stopPropagation();
+      iniciarTimer(ej.bloque, timerBtn);
+    };
+    row.appendChild(timerBtn);
+  }
+  card.appendChild(row);
+
+  if (ej.bloque !== 'Activación') {
+    const pesoRow = document.createElement('div');
+    pesoRow.className = 'card-peso';
+    const label = document.createElement('span');
+    label.className = 'label';
+    label.textContent = 'Última carga';
+    pesoRow.appendChild(label);
+    const value = document.createElement('span');
+    if (ej.peso_usado !== null) {
+      value.className = 'value';
+      value.textContent = ej.peso_usado + ' kg × ' + (ej.reps_logradas !== null ? ej.reps_logradas : '?') + ' reps';
+    } else {
+      value.className = 'value empty';
+      value.textContent = 'Sin registro todavía';
+    }
+    pesoRow.appendChild(value);
+    card.appendChild(pesoRow);
+  }
+
+  if (ej.resultado_sugerido) {
+    const res = document.createElement('div');
+    res.className = 'resultado';
+    res.textContent = ej.resultado_sugerido;
+    card.appendChild(res);
+  }
+
+  if (ej.video) {
+    const link = document.createElement('a');
+    link.className = 'video-link';
+    link.href = ej.video;
+    link.target = '_blank';
+    link.rel = 'noopener';
+    link.textContent = 'Ver técnica';
+    link.onclick = function (evt) { evt.stopPropagation(); };
+    card.appendChild(link);
+  }
+
+  // Formulario de carga (solo bloques pesados) — se abre al tocar la tarjeta.
+  let formAbierto = false;
+  if (ej.bloque !== 'Activación') {
+    card.onclick = function () {
+      formAbierto = !formAbierto;
+      const existente = card.querySelector('.save-form');
+      if (existente) { existente.remove(); if (!formAbierto) return; }
+      if (formAbierto) card.appendChild(renderSaveForm(ej));
+    };
+  } else {
+    // Activación: tocar la tarjeta tilda/destilda directo, sin formulario.
+    card.onclick = function () {
+      const clave = diaActivo + '-' + idxLocal;
+      activacionHecha[clave] = !activacionHecha[clave];
+      renderDia();
+    };
+  }
+
+  return card;
+}
+
+function renderSaveForm(ej) {
+  const form = document.createElement('div');
+  form.className = 'save-form';
+  form.onclick = function (evt) { evt.stopPropagation(); };
+
+  const campoPeso = document.createElement('div');
+  campoPeso.className = 'field';
+  campoPeso.innerHTML = '<label>Peso (kg)</label>';
+  const inputPeso = document.createElement('input');
+  inputPeso.type = 'number';
+  inputPeso.inputMode = 'decimal';
+  inputPeso.step = '0.5';
+  if (ej.peso_usado !== null) inputPeso.value = ej.peso_usado;
+  campoPeso.appendChild(inputPeso);
+
+  const campoReps = document.createElement('div');
+  campoReps.className = 'field';
+  campoReps.innerHTML = '<label>Reps</label>';
+  const inputReps = document.createElement('input');
+  inputReps.type = 'number';
+  inputReps.inputMode = 'numeric';
+  if (ej.reps_logradas !== null) inputReps.value = ej.reps_logradas;
+  campoReps.appendChild(inputReps);
+
+  const btn = document.createElement('button');
+  btn.className = 'save-btn';
+  btn.textContent = 'Guardar';
+  btn.onclick = function () {
+    const peso = inputPeso.value;
+    const reps = inputReps.value;
+    if (!peso && !reps) return;
+    btn.disabled = true;
+    btn.textContent = 'Guardando…';
+    guardarCarga(ej, peso, reps, btn);
+  };
+
+  form.appendChild(campoPeso);
+  form.appendChild(campoReps);
+  form.appendChild(btn);
+  return form;
+}
+
+function guardarCarga(ej, peso, reps, btn) {
+  const idToken = window._idToken;
+  fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // evita preflight CORS
+    body: JSON.stringify({
+      id_token: idToken,
+      dia: semanaData[diaActivo].dia,
+      slot: ej.slot,
+      peso: peso || null,
+      reps: reps || null,
+    }),
+  })
+    .then(function (r) { return r.json(); })
+    .then(function (resp) {
+      if (resp.error) {
+        btn.disabled = false;
+        btn.textContent = 'Reintentar';
+        return;
+      }
+      ej.peso_usado = peso ? Number(peso) : ej.peso_usado;
+      ej.reps_logradas = reps ? Number(reps) : ej.reps_logradas;
+      renderDia();
+    })
+    .catch(function () {
+      btn.disabled = false;
+      btn.textContent = 'Reintentar';
+    });
+}
+
+// Punto de partida del relojito por bloque (no es el rango de la
+// planilla, que sigue siendo informativo — esto es lo que definiste
+// como mínimo real de descanso).
+const DESCANSO_INICIAL_SEGUNDOS = {
+  'Activación': 30,
+  'Fuerza': 3 * 60,
+  'Fuerza-Hipertrofia': 90, // 1:30
+  'Fuerza-Resistencia': 60,
+};
+
+const ICONO_BLOQUE = {
+  'Activación': '🔥',
+  'Fuerza': '🏋️',
+  'Fuerza-Hipertrofia': '💪',
+  'Fuerza-Resistencia': '⚡',
+};
+
+const COLOR_BLOQUE = {
+  'Activación': '#D98A4E',
+  'Fuerza': '#1B3A4B',
+  'Fuerza-Hipertrofia': '#3C6E8B',
+  'Fuerza-Resistencia': '#C1652F',
+};
+
+function iniciarTimer(bloque, btnEl) {
+  let segundos = DESCANSO_INICIAL_SEGUNDOS[bloque] || 60;
+  let enTiempoExtra = false;
+  btnEl.classList.add('running');
+  btnEl.classList.remove('overtime');
+  if (btnEl._intervalId) clearInterval(btnEl._intervalId);
+
+  function pintar() {
+    const m = Math.floor(Math.abs(segundos) / 60), s = Math.abs(segundos) % 60;
+    btnEl.textContent = (enTiempoExtra ? '+' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+  }
+  pintar();
+
+  btnEl._intervalId = setInterval(function () {
+    segundos--;
+    if (segundos < 0 && !enTiempoExtra) {
+      // Llegó a cero: no se detiene, pasa a contar tiempo extra para
+      // arriba (por si el alumno estira el descanso hasta el máximo
+      // del rango de la planilla).
+      enTiempoExtra = true;
+      segundos = 0;
+      btnEl.classList.add('overtime');
+      if (navigator.vibrate) navigator.vibrate(200); // no anda en iPhone/Safari, sí en Android
+    }
+    pintar();
+  }, 1000);
+}
+
+function pill(text) {
+  const span = document.createElement('span');
+  span.className = 'pill';
+  span.textContent = text;
+  return span;
+}
+</script>
+</body>
+</html>
