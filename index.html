@@ -311,6 +311,7 @@ function logoSVG(idSufijo, sizePx, conContorno) {
 let semanaData = null;
 let diaActivo = 0;
 let nombreAlumno = null;
+const activacionHecha = {}; // clave "dia-idxLocal" -> bool (solo en esta sesión, no persiste)
 const timers = {}; // clave "dia-slotOtipo" -> {intervalId, cardEl}
 
 function onGoogleLogin(response) {
@@ -435,11 +436,8 @@ function renderDia() {
 }
 
 function estaHecho(ej, idxLocal) {
-  // Antes Activación se guardaba solo en memoria del celular (se perdía
-  // al cerrar la app); ahora "confirmado" viene del backend igual que
-  // los bloques pesados, comparado por fecha — se mantiene tildado
-  // durante todo el día, y se reinicia solo al día siguiente.
-  return !!ej.confirmado;
+  if (ej.bloque === 'Activación') return !!activacionHecha[diaActivo + '-' + idxLocal];
+  return ej.peso_usado !== null;
 }
 
 function renderCompletionBanner(dia) {
@@ -503,24 +501,16 @@ function renderCard(ej, idxLocal) {
     pesoRow.className = 'card-peso';
     const label = document.createElement('span');
     label.className = 'label';
+    label.textContent = 'Última carga';
+    pesoRow.appendChild(label);
     const value = document.createElement('span');
-    if (ej.confirmado) {
-      label.textContent = 'Última carga';
+    if (ej.peso_usado !== null) {
       value.className = 'value';
-      value.textContent = ej.peso_usado + ' kg × ' + ej.reps_logradas + ' reps';
-    } else if (ej.peso_usado !== null) {
-      // Hay un número en Registro, pero no coincide con lo último que el
-      // alumno confirmó — o porque nunca se confirmó, o porque el profe
-      // lo cambió (progresión). Es un objetivo a cumplir, no algo hecho.
-      label.textContent = 'Carga a lograr';
-      value.className = 'value';
-      value.textContent = ej.peso_usado + ' kg';
+      value.textContent = ej.peso_usado + ' kg × ' + (ej.reps_logradas !== null ? ej.reps_logradas : '?') + ' reps';
     } else {
-      label.textContent = 'Última carga';
       value.className = 'value empty';
       value.textContent = 'Sin registro todavía';
     }
-    pesoRow.appendChild(label);
     pesoRow.appendChild(value);
     card.appendChild(pesoRow);
   }
@@ -553,12 +543,11 @@ function renderCard(ej, idxLocal) {
       if (formAbierto) card.appendChild(renderSaveForm(ej));
     };
   } else {
-    // Activación: tocar la tarjeta confirma directo contra el backend
-    // (fecha de hoy), sin formulario — sin esto quedaba solo en la
-    // memoria del celular y se perdía al cerrar la app.
+    // Activación: tocar la tarjeta tilda/destilda directo, sin formulario.
     card.onclick = function () {
-      if (ej.confirmado) return; // ya confirmada hoy, no hay nada que reenviar
-      confirmarActivacion(ej, card);
+      const clave = diaActivo + '-' + idxLocal;
+      activacionHecha[clave] = !activacionHecha[clave];
+      renderDia();
     };
   }
 
@@ -577,7 +566,7 @@ function renderSaveForm(ej) {
   inputPeso.type = 'number';
   inputPeso.inputMode = 'decimal';
   inputPeso.step = '0.5';
-  if (ej.peso_usado !== null) inputPeso.value = ej.peso_usado; // lo que hay en Registro (objetivo o confirmado)
+  if (ej.peso_usado !== null) inputPeso.value = ej.peso_usado;
   campoPeso.appendChild(inputPeso);
 
   const campoReps = document.createElement('div');
@@ -605,29 +594,6 @@ function renderSaveForm(ej) {
   form.appendChild(campoReps);
   form.appendChild(btn);
   return form;
-}
-
-function confirmarActivacion(ej, cardEl) {
-  const idToken = window._idToken;
-  cardEl.style.opacity = '0.6';
-  fetch(API_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // evita preflight CORS
-    body: JSON.stringify({
-      id_token: idToken,
-      dia: semanaData[diaActivo].dia,
-      slot: ej.slot,
-      bloque: 'Activación',
-    }),
-  })
-    .then(function (r) { return r.json(); })
-    .then(function (resp) {
-      cardEl.style.opacity = '';
-      if (resp.error) return; // se puede reintentar tocando de nuevo
-      ej.confirmado = true;
-      renderDia();
-    })
-    .catch(function () { cardEl.style.opacity = ''; });
 }
 
 function guardarCarga(ej, peso, reps, btn) {
