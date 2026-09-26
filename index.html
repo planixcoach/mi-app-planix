@@ -652,6 +652,7 @@ function guardarCarga(ej, peso, reps, btn) {
       }
       ej.peso_usado = peso ? Number(peso) : ej.peso_usado;
       ej.reps_logradas = reps ? Number(reps) : ej.reps_logradas;
+      ej.confirmado = true; // recién guardado hoy: se marca hecho al instante
       renderDia();
     })
     .catch(function () {
